@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemini Decision 1 — Dynamic Model Router</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-muted: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --blue: #1a73e8;
+      --blue-soft: #e8f0fe;
+      --green: #137333;
+      --green-soft: #e6f4ea;
+      --amber: #b06000;
+      --amber-soft: #fef7e0;
+      --purple: #7c3aed;
+      --purple-soft: #f3e8ff;
+      --red: #c5221f;
+      --red-soft: #fce8e6;
+      --decision-bar: #f59e0b;
+      --ttft-bar: #6366f1;
+      --stream-bar: #10b981;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, #1a73e8, #7c3aed);
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      letter-spacing: 0.3px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 650;
+    }
+
+    .brand p {
+      margin: 2px 0 0 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .secret-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      background: var(--surface-muted);
+    }
+    .secret-pill.ok {
+      background: var(--green-soft);
+      color: var(--green);
+      border-color: #ceead6;
+    }
+    .secret-pill.warn {
+      background: var(--red-soft);
+      color: var(--red);
+      border-color: #fad2cf;
+    }
+
+    .btn-ghost {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-ghost:hover { background: var(--surface-muted); }
+
+    .secret-banner {
+      display: none;
+      background: #fff8eb;
+      border-bottom: 1px solid #fde68a;
+      padding: 10px 24px;
+      font-size: 12.5px;
+      color: #78350f;
+      line-height: 1.5;
+    }
+    .secret-banner code {
+      background: rgba(0, 0, 0, 0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(380px, 0.95fr);
+      overflow: hidden;
+    }
+
+    /* Left Chat Column */
+    .chat-pane {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .presets-section {
+      padding: 12px 20px 14px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .presets-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .presets-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .presets-subtitle {
+      margin: 2px 0 0 0;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 8px;
+    }
+
+    .preset-chip {
+      border: 1px solid var(--border);
+      background: #fcfdff;
+      border-radius: 10px;
+      padding: 9px 11px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 6px;
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+    .preset-chip:hover {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+      transform: translateY(-1px);
+    }
+    .preset-chip strong { font-size: 12px; color: var(--text); display: block; }
+    .preset-chip .desc { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+    .preset-route-pill {
+      display: inline-block;
+      align-self: flex-start;
+      font-size: 10.5px;
+      font-weight: 650;
+      padding: 2px 7px;
+      border-radius: 999px;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .empty-state {
+      margin: auto;
+      max-width: 480px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+    .empty-state h2 {
+      color: var(--text);
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    .empty-state p {
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+
+    .msg {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 92%;
+    }
+    .msg.user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+    .msg.assistant {
+      align-self: flex-start;
+      width: 92%;
+    }
+
+    .bubble {
+      padding: 13px 16px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .msg.user .bubble {
+      background: var(--blue);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+      white-space: pre-wrap;
+    }
+    .msg.assistant .bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+      width: 100%;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .msg.assistant .bubble pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12.5px;
+    }
+    .msg.assistant .bubble code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12.5px;
+    }
+
+    .attached-thumb {
+      max-width: 220px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+
+    /* Per-Turn Routing & Waterfall Card above Assistant Bubble */
+    .turn-routing-strip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .strip-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .tier-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 11.5px;
+    }
+    .tier-lite { background: var(--green-soft); color: var(--green); }
+    .tier-flash { background: var(--blue-soft); color: var(--blue); }
+    .tier-argon { background: var(--purple-soft); color: var(--purple); }
+
+    .mini-tag {
+      background: var(--surface-muted);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .mini-tag.escalated {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    /* Horizontal Latency Waterfall */
+    .waterfall-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .waterfall-track {
+      height: 10px;
+      width: 100%;
+      background: var(--surface-muted);
+      border-radius: 999px;
+      overflow: hidden;
+      display: flex;
+    }
+    .wf-seg {
+      height: 100%;
+      transition: width 0.25s ease;
+    }
+    .wf-decision { background: var(--decision-bar); }
+    .wf-ttft { background: var(--ttft-bar); }
+    .wf-stream { background: var(--stream-bar); }
+
+    .waterfall-legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .wf-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+
+    /* Composer */
+    .composer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .attachment-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--blue-soft);
+      color: var(--blue);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .composer-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      min-height: 46px;
+      max-height: 140px;
+      outline: none;
+    }
+    textarea:focus { border-color: var(--blue); }
+
+    .btn-send {
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-weight: 650;
+      font-size: 13.5px;
+      cursor: pointer;
+    }
+    .btn-send:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* Right Telemetry HUD */
+    .hud-pane {
+      background: var(--surface);
+      overflow-y: auto;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .hud-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: var(--surface);
+    }
+
+    .hud-card h3 {
+      margin: 0 0 10px 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .savings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .kpi-box {
+      background: var(--surface-muted);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .kpi-box .lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .kpi-box .val {
+      font-size: 18px;
+      font-weight: 750;
+      color: var(--text);
+    }
+    .kpi-box.highlight {
+      background: var(--green-soft);
+    }
+    .kpi-box.highlight .val { color: var(--green); }
+
+    .prob-row {
+      margin-bottom: 10px;
+    }
+    .prob-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12.5px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .prob-bar-bg {
+      height: 8px;
+      background: var(--surface-muted);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .prob-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    .signals-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .signal-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .signal-item .k { color: var(--text-muted); font-size: 11px; }
+    .signal-item .v { font-weight: 700; margin-top: 2px; }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 12.5px;
+    }
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    select, input[type="range"] {
+      accent-color: var(--blue);
+    }
+    select {
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      background: var(--surface);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-badge">GEMINI DECISION 1</span>
+      <div>
+        <h1>Dynamic Model Router</h1>
+        <p>Single-prefill calibrated routing across Gemini 3.5 Flash-Lite · Gemini 3.8 Flash · Gemini 4 Argon</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn-ghost" onclick="resetSession()">New Session</button>
+    </div>
+  </header>
+
+  <div id="secretBanner" class="secret-banner"></div>
+
+  <main>
+    <!-- LEFT: Chat + Latency Waterfall -->
+    <section class="chat-pane">
+      <div class="presets-section">
+        <div class="presets-header">
+          <div>
+            <div class="presets-title">
+              <span>Quick-Try Task Cards</span>
+              <span class="mini-tag">1-Click Live Routing Examples</span>
+            </div>
+            <p class="presets-subtitle">
+              Click any sample task below to send a prompt and watch <code>gemini-decision-1</code> automatically route it to the best-fit Gemini model for that task — or type your own prompt below.
+            </p>
+          </div>
+          <button id="togglePresetsBtn" class="btn-ghost" style="padding:4px 10px;font-size:11.5px;white-space:nowrap" onclick="togglePresets()">Hide cards</button>
+        </div>
+
+        <div id="presetsGrid" class="presets-grid">
+          <button class="preset-chip" onclick="runPreset('lite_text')">
+            <div>
+              <strong>⚡ Simple Translation</strong>
+              <div class="desc">Translate &amp; format a short greeting as JSON</div>
+            </div>
+            <span class="preset-route-pill tier-lite">Expect → 3.5 Flash-Lite</span>
+          </button>
+
+          <button class="preset-chip" onclick="runPreset('lite_receipt')">
+            <div>
+              <strong>🧾 Receipt Image OCR</strong>
+              <div class="desc">Attaches a sample PNG receipt &amp; extracts totals</div>
+            </div>
+            <span class="preset-route-pill tier-lite">Expect → 3.5 Flash-Lite</span>
+          </button>
+
+          <button class="preset-chip" onclick="runPreset('flash_code')">
+            <div>
+              <strong>🛠️ Python Rate Limiter</strong>
+              <div class="desc">Write an async token-bucket limiter with clock injection</div>
+            </div>
+            <span class="preset-route-pill tier-flash">Expect → 3.8 Flash</span>
+          </button>
+
+          <button class="preset-chip" onclick="runPreset('argon_deep')">
+            <div>
+              <strong>🧠 Distributed Systems Proof</strong>
+              <div class="desc">Diagnose Raft lease split-brain under clock skew</div>
+            </div>
+            <span class="preset-route-pill tier-argon">Expect → 4 Argon (HIGH)</span>
+          </button>
+
+          <button class="preset-chip" onclick="runPreset('search_live')">
+            <div>
+              <strong>🌐 Live Headlines &amp; Weather</strong>
+              <div class="desc">Ask for current events to trigger search grounding</div>
+            </div>
+            <span class="preset-route-pill tier-flash">Triggers → Search ON</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="messages" class="messages">
+        <div id="emptyState" class="empty-state">
+          <h2>Watch Gemini Decision 1 Route in Real Time</h2>
+          <p>
+            Every turn sends <strong>one prefill-only request</strong> (<code>0 output tokens</code>) to
+            <code>gemini-decision-1</code> evaluating <strong>4 typed questions simultaneously</strong>:
+            target model tier, thinking effort, web search grounding, and cognitive complexity.
+          </p>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div id="attachmentBar" class="attachment-bar">
+          <span id="attachmentLabel">Attached file</span>
+          <button class="btn-ghost" onclick="clearAttachment()">Remove</button>
+        </div>
+        <div class="composer-row">
+          <input type="file" id="fileInput" accept="image/*,application/pdf,audio/*,video/*" style="display:none" onchange="handleFileSelect(event)" />
+          <button class="btn-ghost" style="height:46px" onclick="document.getElementById('fileInput').click()" title="Attach image, PDF, audio, or video">📎 Media</button>
+          <textarea id="promptInput" rows="2" placeholder="Ask anything (or pick a preset card above)…" onkeydown="handleKeyDown(event)"></textarea>
+          <button id="sendBtn" class="btn-send" onclick="sendTurn()">Send</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Live Telemetry HUD -->
+    <aside class="hud-pane">
+      <div class="hud-card">
+        <h3>
+          <span>Counterfactual Savings vs. Always-Argon</span>
+          <span id="turnCounterBadge" class="mini-tag">0 turns</span>
+        </h3>
+        <div class="savings-grid">
+          <div class="kpi-box highlight">
+            <div class="lbl">Session Cost Saved</div>
+            <div id="kpiSavedPct" class="val">0.0%</div>
+          </div>
+          <div class="kpi-box">
+            <div class="lbl">Avg Decision 1 Latency</div>
+            <div id="kpiAvgDecisionMs" class="val">—</div>
+          </div>
+          <div class="kpi-box">
+            <div class="lbl">Actual Routed Spend</div>
+            <div id="kpiActualUsd" class="val">$0.00000</div>
+          </div>
+          <div class="kpi-box">
+            <div class="lbl">Always-Argon Baseline</div>
+            <div id="kpiArgonUsd" class="val">$0.00000</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-card">
+        <h3>
+          <span>Router Controls</span>
+          <span class="mini-tag">ADK before_model_callback</span>
+        </h3>
+        <div class="control-group">
+          <div class="control-row">
+            <label for="modeSelect">Routing Mode</label>
+            <select id="modeSelect">
+              <option value="">Auto (Gemini Decision 1)</option>
+              <option value="gemini-3.5-flash-lite">Pin: gemini-3.5-flash-lite</option>
+              <option value="gemini-3.8-flash">Pin: gemini-3.8-flash</option>
+              <option value="gemini-4-argon">Pin: gemini-4-argon</option>
+            </select>
+          </div>
+          <div>
+            <div class="control-row">
+              <label for="confSlider">Confidence Escalation Threshold</label>
+              <strong id="confVal">0.65</strong>
+            </div>
+            <input type="range" id="confSlider" min="0" max="0.99" step="0.05" value="0.65" style="width:100%;margin-top:4px" oninput="document.getElementById('confVal').textContent = Number(this.value).toFixed(2)" />
+            <div style="font-size:11px;color:var(--text-muted)">
+              If <code>gemini-decision-1</code> confidence &lt; threshold, auto-escalates one tier up.
+            </div>
+          </div>
+          <div class="control-row">
+            <label for="searchToggle">Allow Dynamic Google Search Grounding</label>
+            <input type="checkbox" id="searchToggle" checked />
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-card">
+        <h3>
+          <span>Latest Single-Prefill Decision</span>
+          <span id="hudZeroOutBadge" class="mini-tag">0 output tokens</span>
+        </h3>
+        <div id="hudDecisionEmpty" style="font-size:12.5px;color:var(--text-muted)">
+          Send a prompt to inspect calibrated probabilities across all 4 parallel questions.
+        </div>
+        <div id="hudDecisionBody" style="display:none">
+          <div style="margin-bottom:12px;font-size:12px;color:var(--text-muted)">
+            Q1 · <strong>model_tier</strong> (<code>choice</code>) — Confidence: <strong id="hudTierConf">—</strong>
+          </div>
+          <div id="probBars"></div>
+
+          <div class="signals-grid">
+            <div class="signal-item">
+              <div class="k">Q2 · thinking_level (choice)</div>
+              <div id="sigThinking" class="v">—</div>
+            </div>
+            <div class="signal-item">
+              <div class="k">Q3 · needs_search (noul)</div>
+              <div id="sigSearch" class="v">—</div>
+            </div>
+            <div class="signal-item">
+              <div class="k">Q4 · complexity (score 0–3)</div>
+              <div id="sigComplexity" class="v">—</div>
+            </div>
+            <div class="signal-item">
+              <div class="k">Decision Prefill Latency</div>
+              <div id="sigLatency" class="v">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    function makeUuid(prefix) {
+      const id = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : (Math.random().toString(36).slice(2) + Date.now().toString(36));
+      return `${prefix}-${id}`;
+    }
+
+    let userId = sessionStorage.getItem("demo_user_id");
+    if (!userId) {
+      userId = makeUuid("user");
+      sessionStorage.setItem("demo_user_id", userId);
+    }
+    let sessionId = makeUuid("sess");
+    let currentAttachment = null;
+    let sessionStats = {
+      turns: 0,
+      actualUsd: 0,
+      argonUsd: 0,
+      decisionMsTotal: 0,
+    };
+
+    const TIER_META = {
+      "gemini-3.5-flash-lite": { label: "Gemini 3.5 Flash-Lite", cls: "tier-lite", color: "#137333" },
+      "gemini-3.8-flash": { label: "Gemini 3.8 Flash", cls: "tier-flash", color: "#1a73e8" },
+      "gemini-4-argon": { label: "Gemini 4 Argon", cls: "tier-argon", color: "#7c3aed" },
+    };
+
+    function escapeHtml(str) {
+      return (str || "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
+    function renderSimpleMarkdown(md) {
+      let html = escapeHtml(md);
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, _lang, code) => `<pre><code>${code}</code></pre>`);
+      html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+      html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/\n/g, "<br/>");
+      html = html.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, (_, code) => `<pre><code>${code.replace(/<br\/>/g, "\n")}</code></pre>`);
+      return html;
+    }
+
+    async function loadSecretStatus(refresh = false) {
+      const banner = document.getElementById("secretBanner");
+      try {
+        const res = await fetch(refresh ? "/api/status/refresh" : "/api/status", {
+          method: refresh ? "POST" : "GET",
+        });
+        const data = await res.json();
+        if (data.ready) {
+          banner.style.display = "none";
+        } else {
+          banner.style.display = "block";
+          banner.innerHTML = `<strong>Service Notice:</strong> Backend credentials are not currently active. <button class="btn-ghost" style="margin-left:8px;padding:2px 8px" onclick="loadSecretStatus(true)">Retry</button>`;
+        }
+      } catch (_err) {
+        banner.style.display = "none";
+      }
+    }
+
+    function togglePresets() {
+      const grid = document.getElementById("presetsGrid");
+      const btn = document.getElementById("togglePresetsBtn");
+      const hidden = grid.style.display === "none";
+      grid.style.display = hidden ? "grid" : "none";
+      btn.textContent = hidden ? "Hide cards" : "Show cards";
+    }
+
+    function resetSession() {
+      sessionId = makeUuid("sess");
+      sessionStats = { turns: 0, actualUsd: 0, argonUsd: 0, decisionMsTotal: 0 };
+      updateSessionKpis();
+      document.getElementById("messages").innerHTML = `
+        <div id="emptyState" class="empty-state">
+          <h2>New Session Started</h2>
+          <p>Pick a preset card above or type any prompt below to watch <code>gemini-decision-1</code> route live.</p>
+        </div>`;
+      document.getElementById("hudDecisionEmpty").style.display = "block";
+      document.getElementById("hudDecisionBody").style.display = "none";
+    }
+
+    function handleFileSelect(ev) {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const b64 = String(reader.result).split(",")[1];
+        setAttachment({ filename: file.name, mime_type: file.type || "application/octet-stream", data_b64: b64 });
+      };
+      reader.readAsDataURL(file);
+      ev.target.value = "";
+    }
+
+    function setAttachment(att) {
+      currentAttachment = att;
+      const bar = document.getElementById("attachmentBar");
+      document.getElementById("attachmentLabel").textContent = `📎 ${att.filename} (${att.mime_type})`;
+      bar.style.display = "flex";
+    }
+
+    function clearAttachment() {
+      currentAttachment = null;
+      document.getElementById("attachmentBar").style.display = "none";
+    }
+
+    async function runPreset(kind) {
+      clearAttachment();
+      const input = document.getElementById("promptInput");
+      if (kind === "lite_text") {
+        input.value = "Translate 'Thank you for joining our product launch today!' into Japanese, Spanish, and French as a compact JSON object.";
+        sendTurn();
+      } else if (kind === "lite_receipt") {
+        const res = await fetch("/api/sample-receipt");
+        const receipt = await res.json();
+        setAttachment(receipt);
+        input.value = "Extract the merchant name, order number, line items, tax, and total paid from this receipt image as clean JSON.";
+        sendTurn();
+      } else if (kind === "flash_code") {
+        input.value = "Write a production-ready async token-bucket rate limiter in Python 3.11 using asyncio.Lock, supporting per-tenant burst capacity and clean unit-testable clock injection.";
+        sendTurn();
+      } else if (kind === "argon_deep") {
+        input.value = "A geo-distributed Raft cluster with 5 nodes across 3 regions experiences asymmetric network partitions where Leader L1 can still heartbeat Follower F2, while F3/F4/F5 elect L2. Guests using read-index leases report stale reads during lease handoff under clock skew up to 180ms. Prove the exact safety violation timeline, state the formal linearizability invariant that broke, and design the bounded-uncertainty fix.";
+        sendTurn();
+      } else if (kind === "search_live") {
+        input.value = "What are the top technology news headlines today and current weather conditions in Singapore right now?";
+        sendTurn();
+      }
+    }
+
+    function handleKeyDown(ev) {
+      if (ev.key === "Enter" && !ev.shiftKey) {
+        ev.preventDefault();
+        sendTurn();
+      }
+    }
+
+    function updateHudFromDecision(d) {
+      document.getElementById("hudDecisionEmpty").style.display = "none";
+      document.getElementById("hudDecisionBody").style.display = "block";
+      document.getElementById("hudZeroOutBadge").textContent = `${d.decision_input_tokens} in · 0 out tokens`;
+      document.getElementById("hudTierConf").textContent = `${(d.tier_confidence * 100).toFixed(1)}%`;
+
+      const probBars = document.getElementById("probBars");
+      probBars.innerHTML = "";
+      ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-4-argon"].forEach((tierId) => {
+        const p = Number((d.tier_probabilities || {})[tierId] || 0);
+        const pct = (p * 100).toFixed(1);
+        const meta = TIER_META[tierId];
+        const isSelected = d.selected_model === tierId;
+        probBars.innerHTML += `
+          <div class="prob-row">
+            <div class="prob-header">
+              <span>${meta.label} ${isSelected ? "✓" : ""}</span>
+              <span>${pct}%</span>
+            </div>
+            <div class="prob-bar-bg">
+              <div class="prob-bar-fill" style="width:${Math.max(p * 100, 1.5)}%;background:${meta.color}"></div>
+            </div>
+          </div>`;
+      });
+
+      document.getElementById("sigThinking").textContent =
+        d.applied_thinking_level ? `${d.thinking_level} (applied)` : `${d.thinking_level} (n/a on Lite)`;
+      document.getElementById("sigSearch").textContent =
+        `P(yes)=${(d.needs_search_prob * 100).toFixed(0)}% ${d.applied_search_grounding ? "→ ON" : "→ OFF"}`;
+      document.getElementById("sigComplexity").textContent =
+        `${Number(d.complexity_score).toFixed(2)} / ${d.complexity_max}`;
+      document.getElementById("sigLatency").textContent = `${d.decision_ms.toFixed(0)} ms`;
+    }
+
+    function updateSessionKpis() {
+      document.getElementById("turnCounterBadge").textContent = `${sessionStats.turns} turn${sessionStats.turns === 1 ? "" : "s"}`;
+      document.getElementById("kpiActualUsd").textContent = `$${sessionStats.actualUsd.toFixed(5)}`;
+      document.getElementById("kpiArgonUsd").textContent = `$${sessionStats.argonUsd.toFixed(5)}`;
+      if (sessionStats.turns > 0) {
+        const avgMs = sessionStats.decisionMsTotal / sessionStats.turns;
+        document.getElementById("kpiAvgDecisionMs").textContent = `${avgMs.toFixed(0)} ms`;
+      } else {
+        document.getElementById("kpiAvgDecisionMs").textContent = "—";
+      }
+      if (sessionStats.argonUsd > 0) {
+        const pct = ((sessionStats.argonUsd - sessionStats.actualUsd) / sessionStats.argonUsd) * 100;
+        document.getElementById("kpiSavedPct").textContent = `${pct.toFixed(1)}%`;
+      } else {
+        document.getElementById("kpiSavedPct").textContent = "0.0%";
+      }
+    }
+
+    async function sendTurn() {
+      const inputEl = document.getElementById("promptInput");
+      const text = inputEl.value.trim();
+      if (!text && !currentAttachment) return;
+
+      const empty = document.getElementById("emptyState");
+      if (empty) empty.remove();
+
+      const sendBtn = document.getElementById("sendBtn");
+      sendBtn.disabled = true;
+
+      const sentAttachment = currentAttachment;
+      inputEl.value = "";
+      clearAttachment();
+
+      const messagesEl = document.getElementById("messages");
+
+      // Render User Message
+      const userDiv = document.createElement("div");
+      userDiv.className = "msg user";
+      let userHtml = "";
+      if (sentAttachment && sentAttachment.mime_type.startsWith("image/")) {
+        userHtml += `<img class="attached-thumb" src="data:${sentAttachment.mime_type};base64,${sentAttachment.data_b64}" alt="attachment" />`;
+      } else if (sentAttachment) {
+        userHtml += `<div class="mini-tag">📎 ${escapeHtml(sentAttachment.filename)}</div>`;
+      }
+      if (text) {
+        userHtml += `<div class="bubble">${escapeHtml(text)}</div>`;
+      }
+      userDiv.innerHTML = userHtml;
+      messagesEl.appendChild(userDiv);
+
+      // Render Assistant Placeholder with Live Telemetry Strip
+      const asstDiv = document.createElement("div");
+      asstDiv.className = "msg assistant";
+      asstDiv.innerHTML = `
+        <div class="turn-routing-strip">
+          <div class="strip-top">
+            <span class="mini-tag" id="liveBadge">⚡ Evaluating single-prefill routing on gemini-decision-1…</span>
+            <span class="mini-tag" id="liveMeta">0 output tokens</span>
+          </div>
+          <div class="waterfall-wrap">
+            <div class="waterfall-track">
+              <div class="wf-seg wf-decision" style="width:15%"></div>
+              <div class="wf-seg wf-ttft" style="width:0%"></div>
+              <div class="wf-seg wf-stream" style="width:0%"></div>
+            </div>
+            <div class="waterfall-legend">
+              <span><i class="wf-dot" style="background:var(--decision-bar)"></i>Decision 1: <strong class="d-ms">…</strong></span>
+              <span><i class="wf-dot" style="background:var(--ttft-bar)"></i>Model TTFT / Thinking: <strong class="t-ms">…</strong></span>
+              <span><i class="wf-dot" style="background:var(--stream-bar)"></i>Decode: <strong class="s-ms">…</strong></span>
+              <span class="cost-note"></span>
+            </div>
+          </div>
+        </div>
+        <div class="bubble"><span style="color:var(--text-muted)">Routing…</span></div>
+      `;
+      messagesEl.appendChild(asstDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      const stripBadge = asstDiv.querySelector("#liveBadge");
+      const stripMeta = asstDiv.querySelector("#liveMeta");
+      const wfDecision = asstDiv.querySelector(".wf-decision");
+      const wfTtft = asstDiv.querySelector(".wf-ttft");
+      const wfStream = asstDiv.querySelector(".wf-stream");
+      const dMsEl = asstDiv.querySelector(".d-ms");
+      const tMsEl = asstDiv.querySelector(".t-ms");
+      const sMsEl = asstDiv.querySelector(".s-ms");
+      const costNoteEl = asstDiv.querySelector(".cost-note");
+      const bubbleEl = asstDiv.querySelector(".bubble");
+
+      let accumulatedMd = "";
+      let cachedDecisionMs = 0;
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            session_id: sessionId,
+            message: text,
+            confidence_threshold: Number(document.getElementById("confSlider").value),
+            forced_model: document.getElementById("modeSelect").value || null,
+            enable_search_grounding: document.getElementById("searchToggle").checked,
+            attachment: sentAttachment,
+          }),
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
+
+          for (const rawEvent of parts) {
+            const line = rawEvent.trim();
+            if (!line.startsWith("data:")) continue;
+            const evt = JSON.parse(line.slice(5).trim());
+
+            if (evt.type === "routing_decision") {
+              const d = evt.data;
+              cachedDecisionMs = d.decision_ms;
+              const meta = TIER_META[d.selected_model] || TIER_META["gemini-3.8-flash"];
+              stripBadge.className = `tier-badge ${meta.cls}`;
+              stripBadge.textContent = `Routed → ${meta.label}`;
+
+              let tags = `Conf ${(d.tier_confidence * 100).toFixed(0)}%`;
+              if (d.applied_thinking_level) tags += ` · Thinking ${d.applied_thinking_level}`;
+              if (d.applied_search_grounding) tags += ` · 🌐 Search ON`;
+              if (d.escalated_by_confidence) tags += ` · ⬆️ Escalated (<${d.confidence_threshold})`;
+              if (d.forced_model) tags += ` · Pinned`;
+              stripMeta.textContent = tags;
+              if (d.escalated_by_confidence) stripMeta.className = "mini-tag escalated";
+
+              dMsEl.textContent = `${d.decision_ms.toFixed(0)} ms`;
+              bubbleEl.innerHTML = `<span style="color:var(--text-muted)">Waiting for ${escapeHtml(meta.label)} first token…</span>`;
+              updateHudFromDecision(d);
+            } else if (evt.type === "ttft") {
+              tMsEl.textContent = `${evt.ttft_ms.toFixed(0)} ms`;
+              const subTotal = Math.max(cachedDecisionMs + evt.ttft_ms, 1);
+              wfDecision.style.width = `${Math.max((cachedDecisionMs / subTotal) * 70, 4)}%`;
+              wfTtft.style.width = `${Math.max((evt.ttft_ms / subTotal) * 70, 6)}%`;
+            } else if (evt.type === "text_delta") {
+              accumulatedMd += evt.delta;
+              bubbleEl.innerHTML = renderSimpleMarkdown(accumulatedMd);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            } else if (evt.type === "turn_complete") {
+              const info = evt.data;
+              const lat = info.latency;
+              const cost = info.cost;
+
+              dMsEl.textContent = `${lat.decision_ms.toFixed(0)} ms (${lat.decision_share_pct}%)`;
+              tMsEl.textContent = `${lat.ttft_ms.toFixed(0)} ms`;
+              sMsEl.textContent = `${lat.stream_ms.toFixed(0)} ms`;
+
+              const tot = Math.max(lat.total_ms, 1);
+              wfDecision.style.width = `${Math.max((lat.decision_ms / tot) * 100, 2.5)}%`;
+              wfTtft.style.width = `${Math.max((lat.ttft_ms / tot) * 100, 2.5)}%`;
+              wfStream.style.width = `${Math.max((lat.stream_ms / tot) * 100, 2.5)}%`;
+
+              costNoteEl.innerHTML = `Total: <strong>${(lat.total_ms / 1000).toFixed(2)}s</strong> · Saved <strong>${cost.savings_pct.toFixed(0)}%</strong> vs Argon`;
+
+              if (info.grounding_sources && info.grounding_sources.length > 0) {
+                const links = info.grounding_sources
+                  .map((s) => `<a href="${escapeHtml(s.uri)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>`)
+                  .join(" · ");
+                bubbleEl.innerHTML = renderSimpleMarkdown(accumulatedMd) +
+                  `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-muted)">🌐 Grounded sources: ${links}</div>`;
+              }
+
+              sessionStats.turns += 1;
+              sessionStats.actualUsd += Number(cost.actual_total_cost_usd || 0);
+              sessionStats.argonUsd += Number(cost.always_argon_cost_usd || 0);
+              sessionStats.decisionMsTotal += Number(lat.decision_ms || 0);
+              updateSessionKpis();
+            } else if (evt.type === "error") {
+              bubbleEl.innerHTML = `<span style="color:var(--red);font-weight:600">Error:</span> ${escapeHtml(evt.message)}`;
+              loadSecretStatus(false);
+            }
+          }
+        }
+      } catch (err) {
+        bubbleEl.innerHTML = `<span style="color:var(--red);font-weight:600">Network Error:</span> ${escapeHtml(String(err))}`;
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    loadSecretStatus(false);
+  </script>
+</body>
+</html>
