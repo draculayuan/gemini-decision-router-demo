@@ -2,7 +2,7 @@
 
 A real-time multimodal model routing demo built with **Google Agent Development Kit (ADK)** and the **Gemini Decisions API (`gemini-decision-1`)**.
 
-Instead of using a generative LLM to emit text routing labels, every user turn runs a **single prefill pass (`0 output tokens`)** on `gemini-decision-1` to evaluate **4 independent questions simultaneously**—dynamically routing across `gemini-3.5-flash-lite`, `gemini-3.8-flash`, and `gemini-4-argon` while streaming live probability bars, a 3-stage **Latency Waterfall**, and cumulative **cost savings vs. Always-Argon**.
+Instead of using a generative LLM to emit text routing labels, every user turn runs a **single prefill pass (`0 output tokens`)** on `gemini-decision-1` to evaluate **4 independent questions simultaneously**—dynamically routing across `gemini-3.5-flash-lite`, `gemini-4-hydrogen`, and `gemini-4-argon` while streaming live probability bars, a 3-stage **Latency Waterfall**, and cumulative **cost savings vs. Always-Argon**.
 
 ---
 
@@ -13,7 +13,7 @@ sequenceDiagram
     participant UI as Split-Screen Web UI
     participant Server as FastAPI + ADK Runner
     participant GD1 as gemini-decision-1 (Decisions API)
-    participant Tier as Routed Gemini Model (Lite / 3.8 Flash / 4 Argon)
+    participant Tier as Routed Gemini Model (Lite / 4 Hydrogen / 4 Argon)
 
     UI->>Server: POST /api/chat (text + optional image/PDF + threshold)
     Note over Server,GD1: ADK before_model_callback (single prefill, 0 output tokens)
@@ -28,7 +28,7 @@ sequenceDiagram
 | :--- | :--- | :--- |
 | **Agent Runtime** | [Google ADK (`google-adk`)](https://adk.dev/) | `Agent` + `Runner` + `InMemorySessionService`; intercepts every turn via `before_model_callback` to mutate `llm_request.model` and `GenerateContentConfig` on the fly |
 | **Decision Router** | `gemini-decision-1` (`v1beta/decisions`) | Single-prefill multimodal classifier returning calibrated probabilities across `choice`, `noul` (yes/no), and `score` questions with `0` output tokens |
-| **Generative Tiers** | `gemini-3.5-flash-lite` · `gemini-3.8-flash` · `gemini-4-argon` | Fast extraction/translation → everyday engineering/synthesis → frontier proofs & deep systems reasoning |
+| **Generative Tiers** | `gemini-3.5-flash-lite` · `gemini-4-hydrogen` · `gemini-4-argon` | Fast extraction/translation → everyday coding & agentic synthesis → frontier proofs & deep systems reasoning |
 | **Backend & Streaming** | Python 3.11+, FastAPI, `httpx` (HTTP/2), SSE | Streams Stage 1 routing telemetry immediately (~180–400 ms) before Stage 2/3 LLM generation completes |
 | **Secret Management** | Google Cloud Secret Manager (ADC) | Loads the Gemini API key strictly in memory at runtime (`GEMINI_API_KEY` env var also supported for local quickstart) |
 | **Frontend** | Zero-build HTML / CSS / Vanilla JS | Split-screen chat, Quick-Try task cards, multimodal attachment upload, confidence slider, and horizontal Latency Waterfall |

@@ -19,7 +19,7 @@ from app.demo_server import demo_app
 from app.pricing import (
     ARGON_MODEL_ID,
     FLASH_LITE_MODEL_ID,
-    FLASH_MODEL_ID,
+    HYDROGEN_MODEL_ID,
     calculate_turn_cost,
 )
 from app.router_callback import (
@@ -109,11 +109,11 @@ def test_confidence_escalation_ladder() -> None:
         tier_confidence=0.52,
         confidence_threshold=0.65,
     )
-    assert model == FLASH_MODEL_ID
+    assert model == HYDROGEN_MODEL_ID
     assert esc is True
 
     model2, esc2 = resolve_tier_with_confidence_escalation(
-        raw_choice=FLASH_MODEL_ID,
+        raw_choice=HYDROGEN_MODEL_ID,
         tier_confidence=0.40,
         confidence_threshold=0.65,
     )
@@ -129,8 +129,8 @@ def test_confidence_escalation_ladder() -> None:
     assert esc3 is False
 
 
-def test_apply_model_specific_config_argon_and_flash_guardrails() -> None:
-    """Verify Argon strips sampling params and clamps invalid MINIMAL thinking."""
+def test_apply_model_specific_config_argon_and_hydrogen_guardrails() -> None:
+    """Verify Gemini 4 Hydrogen & Argon strip sampling params and validate thinking levels."""
     req = LlmRequest(
         model=FLASH_LITE_MODEL_ID,
         config=types.GenerateContentConfig(temperature=0.7, top_p=0.9, top_k=40),
@@ -151,6 +151,22 @@ def test_apply_model_specific_config_argon_and_flash_guardrails() -> None:
     assert req.config.top_k is None
     assert req.config.tools is not None
     assert req.config.tools[0].google_search is not None
+
+    # Hydrogen also strips custom sampling parameters and accepts XHIGH/HIGH/MEDIUM/LOW
+    req_h = LlmRequest(
+        model=FLASH_LITE_MODEL_ID,
+        config=types.GenerateContentConfig(temperature=0.5, candidate_count=2),
+    )
+    level_h = apply_model_specific_config(
+        req_h,
+        selected_model=HYDROGEN_MODEL_ID,
+        thinking_level="LOW",
+        attach_google_search=False,
+    )
+    assert req_h.model == HYDROGEN_MODEL_ID
+    assert level_h == "LOW"
+    assert req_h.config.temperature is None
+    assert req_h.config.candidate_count is None
 
     # Switching back to 3.5 Flash-Lite disables thinking_config
     level_lite = apply_model_specific_config(

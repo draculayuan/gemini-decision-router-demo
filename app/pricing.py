@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 
 DECISION_MODEL_ID = "gemini-decision-1"
 FLASH_LITE_MODEL_ID = "gemini-3.5-flash-lite"
-FLASH_MODEL_ID = "gemini-3.8-flash"
+HYDROGEN_MODEL_ID = "gemini-4-hydrogen"
 ARGON_MODEL_ID = "gemini-4-argon"
 
 # Paid-tier standard rates in USD per 1,000,000 tokens (November 2026 Gemini API docs).
@@ -25,10 +25,10 @@ MODEL_RATES_PER_1M_USD: dict[str, dict[str, float | str]] = {
         "input_per_1m": 0.30,
         "output_per_1m": 2.50,
     },
-    FLASH_MODEL_ID: {
-        "label": "Gemini 3.8 Flash",
-        "input_per_1m": 0.75,
-        "output_per_1m": 3.75,
+    HYDROGEN_MODEL_ID: {
+        "label": "Gemini 4 Hydrogen",
+        "input_per_1m": 1.50,
+        "output_per_1m": 7.50,
     },
     ARGON_MODEL_ID: {
         "label": "Gemini 4 Argon",
@@ -39,7 +39,7 @@ MODEL_RATES_PER_1M_USD: dict[str, dict[str, float | str]] = {
 
 TIER_ORDER: tuple[str, ...] = (
     FLASH_LITE_MODEL_ID,
-    FLASH_MODEL_ID,
+    HYDROGEN_MODEL_ID,
     ARGON_MODEL_ID,
 )
 

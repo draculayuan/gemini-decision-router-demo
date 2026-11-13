@@ -21,13 +21,14 @@ from app.decisions_client import RoutingDecisionResult, evaluate_routing_decisio
 from app.pricing import (
     ARGON_MODEL_ID,
     FLASH_LITE_MODEL_ID,
-    FLASH_MODEL_ID,
+    HYDROGEN_MODEL_ID,
     TIER_ORDER,
 )
 from app.secret_loader import get_gemini_api_key
 
 SEARCH_GROUNDING_THRESHOLD = 0.70
-VALID_THINKING_LEVELS = frozenset({"LOW", "MEDIUM", "HIGH"})
+ARGON_THINKING_LEVELS = frozenset({"LOW", "MEDIUM", "HIGH"})
+HYDROGEN_THINKING_LEVELS = frozenset({"LOW", "MEDIUM", "HIGH", "XHIGH"})
 
 
 @dataclass
@@ -152,7 +153,7 @@ def resolve_tier_with_confidence_escalation(
     confidence_threshold: float,
 ) -> tuple[str, bool]:
     """Escalate one model tier up when Decision 1 confidence is below threshold."""
-    chosen = raw_choice if raw_choice in TIER_ORDER else FLASH_MODEL_ID
+    chosen = raw_choice if raw_choice in TIER_ORDER else HYDROGEN_MODEL_ID
     idx = TIER_ORDER.index(chosen)
     if tier_confidence < confidence_threshold and idx < len(TIER_ORDER) - 1:
         return TIER_ORDER[idx + 1], True
@@ -168,23 +169,33 @@ def apply_model_specific_config(
 ) -> str | None:
     """Mutate `llm_request.model` and `llm_request.config` safely per Gemini tier.
 
-    Enforces documented Gemini 4 Argon & Gemini 3.8 Flash API rules:
-    - Thinking levels must be one of `LOW`, `MEDIUM`, `HIGH` (`MINIMAL` or
-      `thinking_budget` raises HTTP 400 on 3.8 Flash and 4 Argon).
-    - Custom sampling parameters (`temperature`, `top_p`, `top_k`) are stripped
-      on Gemini 4 Argon.
+    Enforces documented Gemini 4 Hydrogen & Gemini 4 Argon API rules:
+    - Thinking levels: Hydrogen accepts `LOW`, `MEDIUM`, `HIGH`, `XHIGH`; Argon
+      accepts `LOW`, `MEDIUM`, `HIGH` (`MINIMAL` raises HTTP 400 on both).
+    - Custom sampling parameters (`temperature`, `top_p`, `top_k`,
+      `candidate_count`) are stripped on Gemini 4 models.
     """
     llm_request.model = selected_model
     llm_request.config = llm_request.config or types.GenerateContentConfig()
 
-    safe_level = (
-        thinking_level.upper()
-        if thinking_level.upper() in VALID_THINKING_LEVELS
-        else "MEDIUM"
-    )
-
+    upper_level = thinking_level.upper()
     applied_level: str | None = None
-    if selected_model in (FLASH_MODEL_ID, ARGON_MODEL_ID):
+
+    if selected_model == HYDROGEN_MODEL_ID:
+        safe_level = (
+            upper_level if upper_level in HYDROGEN_THINKING_LEVELS else "MEDIUM"
+        )
+        llm_request.config.thinking_config = types.ThinkingConfig(
+            thinking_level=safe_level,  # type: ignore[arg-type]
+        )
+        applied_level = safe_level
+    elif selected_model == ARGON_MODEL_ID:
+        if upper_level == "XHIGH":
+            safe_level = "HIGH"
+        elif upper_level in ARGON_THINKING_LEVELS:
+            safe_level = upper_level
+        else:
+            safe_level = "MEDIUM"
         llm_request.config.thinking_config = types.ThinkingConfig(
             thinking_level=safe_level,  # type: ignore[arg-type]
         )
@@ -192,10 +203,11 @@ def apply_model_specific_config(
     else:
         llm_request.config.thinking_config = None
 
-    if selected_model == ARGON_MODEL_ID:
+    if selected_model in (HYDROGEN_MODEL_ID, ARGON_MODEL_ID):
         llm_request.config.temperature = None
         llm_request.config.top_p = None
         llm_request.config.top_k = None
+        llm_request.config.candidate_count = None
 
     has_function_tools = bool(llm_request.tools_dict)
     if attach_google_search and not has_function_tools:

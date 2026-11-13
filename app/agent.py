@@ -25,7 +25,7 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
-from app.pricing import FLASH_MODEL_ID
+from app.pricing import HYDROGEN_MODEL_ID
 from app.router_callback import route_with_gemini_decision_1
 from app.secret_loader import get_gemini_api_key
 
@@ -67,14 +67,14 @@ Guidelines:
 root_agent = Agent(
     name="dynamic_router_assistant",
     model=SecretManagerGemini(
-        model=FLASH_MODEL_ID,
+        model=HYDROGEN_MODEL_ID,
         api_version="v1beta",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     instruction=SYSTEM_INSTRUCTION,
     description=(
         "General-purpose multimodal assistant dynamically routed across "
-        "Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, and Gemini 4 Argon by "
+        "Gemini 3.5 Flash-Lite, Gemini 4 Hydrogen, and Gemini 4 Argon by "
         "Gemini Decision 1."
     ),
     before_model_callback=route_with_gemini_decision_1,

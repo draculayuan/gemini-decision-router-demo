@@ -561,7 +561,7 @@
       <span class="brand-badge">GEMINI DECISION 1</span>
       <div>
         <h1>Dynamic Model Router</h1>
-        <p>Single-prefill calibrated routing across Gemini 3.5 Flash-Lite · Gemini 3.8 Flash · Gemini 4 Argon</p>
+        <p>Single-prefill calibrated routing across Gemini 3.5 Flash-Lite · Gemini 4 Hydrogen · Gemini 4 Argon</p>
       </div>
     </div>
     <div class="header-right">
@@ -610,7 +610,7 @@
               <strong>🛠️ Python Rate Limiter</strong>
               <div class="desc">Write an async token-bucket limiter with clock injection</div>
             </div>
-            <span class="preset-route-pill tier-flash">Expect → 3.8 Flash</span>
+            <span class="preset-route-pill tier-flash">Expect → 4 Hydrogen</span>
           </button>
 
           <button class="preset-chip" onclick="runPreset('argon_deep')">
@@ -694,7 +694,7 @@
             <select id="modeSelect">
               <option value="">Auto (Gemini Decision 1)</option>
               <option value="gemini-3.5-flash-lite">Pin: gemini-3.5-flash-lite</option>
-              <option value="gemini-3.8-flash">Pin: gemini-3.8-flash</option>
+              <option value="gemini-4-hydrogen">Pin: gemini-4-hydrogen</option>
               <option value="gemini-4-argon">Pin: gemini-4-argon</option>
             </select>
           </div>
@@ -776,7 +776,7 @@
 
     const TIER_META = {
       "gemini-3.5-flash-lite": { label: "Gemini 3.5 Flash-Lite", cls: "tier-lite", color: "#137333" },
-      "gemini-3.8-flash": { label: "Gemini 3.8 Flash", cls: "tier-flash", color: "#1a73e8" },
+      "gemini-4-hydrogen": { label: "Gemini 4 Hydrogen", cls: "tier-flash", color: "#1a73e8" },
       "gemini-4-argon": { label: "Gemini 4 Argon", cls: "tier-argon", color: "#7c3aed" },
     };
 
@@ -898,7 +898,7 @@
 
       const probBars = document.getElementById("probBars");
       probBars.innerHTML = "";
-      ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-4-argon"].forEach((tierId) => {
+      ["gemini-3.5-flash-lite", "gemini-4-hydrogen", "gemini-4-argon"].forEach((tierId) => {
         const p = Number((d.tier_probabilities || {})[tierId] || 0);
         const pct = (p * 100).toFixed(1);
         const meta = TIER_META[tierId];
@@ -1050,7 +1050,7 @@
             if (evt.type === "routing_decision") {
               const d = evt.data;
               cachedDecisionMs = d.decision_ms;
-              const meta = TIER_META[d.selected_model] || TIER_META["gemini-3.8-flash"];
+              const meta = TIER_META[d.selected_model] || TIER_META["gemini-4-hydrogen"];
               stripBadge.className = `tier-badge ${meta.cls}`;
               stripBadge.textContent = `Routed → ${meta.label}`;
 

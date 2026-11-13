@@ -22,7 +22,7 @@ from app.pricing import (
     ARGON_MODEL_ID,
     DECISION_MODEL_ID,
     FLASH_LITE_MODEL_ID,
-    FLASH_MODEL_ID,
+    HYDROGEN_MODEL_ID,
 )
 
 DECISIONS_REST_URL = "https://generativelanguage.googleapis.com/v1beta/decisions"
@@ -40,9 +40,9 @@ ROUTING_QUESTIONS: dict[str, dict[str, Any]] = {
                 "summarization, formatting, or straightforward field extraction "
                 "from text, receipts, or images."
             ),
-            FLASH_MODEL_ID: (
-                "Standard software engineering, multi-step synthesis, structured "
-                "analysis, drafting documents, or everyday analytical workflows."
+            HYDROGEN_MODEL_ID: (
+                "Standard software engineering, interactive web/UI apps, multi-step "
+                "synthesis, multimodal document analysis, or everyday agentic workflows."
             ),
             ARGON_MODEL_ID: (
                 "Frontier reasoning: formal math or proofs, subtle distributed-systems "
